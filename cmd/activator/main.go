@@ -137,7 +137,7 @@ func main() {
 		logger.Fatalw("Failed to start informers", zap.Error(err))
 	}
 
-	logger.Info("Starting the knative activator")
+	logger.Info("Starting the knative activator Karan")
 
 	// Create the transport used by both the activator->QP probe and the proxy.
 	// It's important that the throttler and the activatorhandler share this

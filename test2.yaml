@@ -1,0 +1,63 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: hello
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "1"
+    spec:
+      containerConcurrency: 0
+      containers:
+        - image: "ghcr.io/knative/helloworld-go:latest"
+          name: main-container
+          ports:
+            - containerPort: 8080
+              name: http1
+              protocol: TCP
+          livenessProbe:
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 1
+            successThreshold: 1
+            httpGet:
+              path: /
+              port: 8080
+          readinessProbe:
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 1
+            successThreshold: 1
+            httpGet:
+              path: /
+              port: 8080
+          resources: {}
+        - image: "karanjagtiani/go-server:latest"
+          name: sidecar-container
+          livenessProbe:
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 1
+            successThreshold: 1
+            httpGet:
+              path: /
+              port: 8081
+          readinessProbe:
+            initialDelaySeconds: 5
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 1
+            successThreshold: 1
+            httpGet:
+              path: /
+              port: 8081
+          resources: {}
+      enableServiceLinks: false
+      timeoutSeconds: 300
+  traffic:
+    - latestRevision: true
+      percent: 100

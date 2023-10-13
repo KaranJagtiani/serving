@@ -17,6 +17,7 @@ limitations under the License.
 package health
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 
@@ -31,6 +32,7 @@ const badProbeTemplate = "unexpected probe header value: "
 // ProbeHandler returns a http.HandlerFunc that responds to health checks.
 // This handler assumes the Knative Probe Header will be passed.
 func ProbeHandler(prober func() bool, tracingEnabled bool) http.HandlerFunc {
+	fmt.Println("ProbeHandler: prober!", prober)
 	return func(w http.ResponseWriter, r *http.Request) {
 		ph := netheader.GetKnativeProbeValue(r)
 
@@ -54,6 +56,7 @@ func ProbeHandler(prober func() bool, tracingEnabled bool) http.HandlerFunc {
 			return
 		}
 
+		fmt.Println("ProbeHandler: prober invocation!", prober)
 		if !prober() {
 			probeSpan.Annotate([]trace.Attribute{
 				trace.StringAttribute("queueproxy.probe.error", "container not ready")}, "error")

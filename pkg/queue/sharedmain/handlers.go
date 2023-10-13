@@ -18,6 +18,7 @@ package sharedmain
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -43,9 +44,9 @@ func mainHandler(
 	prober func() bool,
 	stats *netstats.RequestStats,
 	logger *zap.SugaredLogger,
-) (http.Handler, *pkghandler.Drainer) {
+) (http.Handler, *pkghandler.Drainer) { // []*pkghandler.Drainer
 	target := net.JoinHostPort("127.0.0.1", env.UserPort)
-
+	fmt.Println("mainHandler target: ", target)
 	httpProxy := pkghttp.NewHeaderPruningReverseProxy(target, pkghttp.NoHostOverride, activator.RevisionHeaders, false /* use HTTP */)
 	httpProxy.Transport = transport
 	httpProxy.ErrorHandler = pkghandler.Error(logger)
@@ -67,6 +68,8 @@ func mainHandler(
 	// Note: innermost handlers are specified first, ie. the last handler in the chain will be executed first.
 	var composedHandler http.Handler = httpProxy
 
+	fmt.Printf("\ncomposedHandler: %+v\n\n", composedHandler)
+
 	metricsSupported := supportsMetrics(ctx, logger, env)
 	if metricsSupported {
 		composedHandler = requestAppMetricsHandler(logger, composedHandler, breaker, env)
@@ -84,6 +87,7 @@ func mainHandler(
 		composedHandler = tracing.HTTPSpanMiddleware(composedHandler)
 	}
 
+	fmt.Println("Creating main drainer!")
 	drainer := &pkghandler.Drainer{
 		QuietPeriod: drainSleepDuration,
 		// Add Activator probe header to the drainer so it can handle probes directly from activator
@@ -91,6 +95,18 @@ func mainHandler(
 		Inner:                 composedHandler,
 		HealthCheck:           health.ProbeHandler(prober, tracingEnabled),
 	}
+
+	// fmt.Println("Creating sidecar drainers!")
+	// var sidecarDrainers []*pkghandler.Drainer
+	// for _, sidecarProber := range sidecarProbers {
+	// 	sidecarDrainers = append(sidecarDrainers, &pkghandler.Drainer{
+	// 		QuietPeriod:           drainSleepDuration,
+	// 		HealthCheckUAPrefixes: []string{netheader.ActivatorUserAgent, netheader.AutoscalingUserAgent},
+	// 		Inner:                 composedHandler,
+	// 		HealthCheck:           health.ProbeHandler(sidecarProber, tracingEnabled),
+	// 	})
+	// }
+
 	composedHandler = drainer
 
 	if env.ServingEnableRequestLog {
@@ -98,11 +114,14 @@ func mainHandler(
 		// Hence we need to have RequestLogHandler be the first one.
 		composedHandler = requestLogHandler(logger, composedHandler, env)
 	}
+	// return composedHandler, drainer, sidecarDrainers
 	return composedHandler, drainer
 }
 
+// sidecarDrainers []*pkghandler.Drainer
 func adminHandler(ctx context.Context, logger *zap.SugaredLogger, drainer *pkghandler.Drainer) http.Handler {
 	mux := http.NewServeMux()
+	fmt.Println("adminHandler: queue.RequestQueueDrainPath: ", queue.RequestQueueDrainPath)
 	mux.HandleFunc(queue.RequestQueueDrainPath, func(w http.ResponseWriter, r *http.Request) {
 		logger.Info("Attached drain handler from user-container", r)
 
@@ -115,10 +134,16 @@ func adminHandler(ctx context.Context, logger *zap.SugaredLogger, drainer *pkgha
 				// liveness probes are triggering the container to restart
 				// and we shouldn't block that
 				drainer.Reset()
+				// for _, sidecarDrainer := range sidecarDrainers {
+				// 	sidecarDrainer.Reset()
+				// }
 			}
 		}()
 
 		drainer.Drain()
+		// for _, sidecarDrainer := range sidecarDrainers {
+		// 	sidecarDrainer.Drain()
+		// }
 		w.WriteHeader(http.StatusOK)
 	})
 

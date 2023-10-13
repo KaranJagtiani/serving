@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"strconv"
@@ -275,9 +276,10 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		// environment variable for this health endpoint to use.
 		userProbe := container.ReadinessProbe.DeepCopy()
 		applyReadinessProbeDefaultsForExec(userProbe, probePort)
-
+		fmt.Printf("\nmakeQueueContainer userProbe: %+v\n\n", userProbe)
 		var err error
 		userProbeJSON, err = readiness.EncodeProbe(userProbe)
+		fmt.Printf("\nmakeQueueContainer userProbeJSON: %+v\n\n", userProbeJSON)
 		if err != nil {
 			return nil, fmt.Errorf("failed to serialize readiness probe: %w", err)
 		}
@@ -297,6 +299,22 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 			},
 		}
 	}
+
+	sidecarProbes := getSidecarReadinessProbes(rev)
+	for _, sidecarProbe := range sidecarProbes {
+		if sidecarProbe.HTTPGet != nil {
+			applyReadinessProbeDefaultsForExec(sidecarProbe, sidecarProbe.HTTPGet.Port.IntVal)
+		} else if sidecarProbe.TCPSocket != nil {
+			applyReadinessProbeDefaultsForExec(sidecarProbe, sidecarProbe.TCPSocket.Port.IntVal)
+		}
+	}
+	fmt.Printf("\nmakeQueueContainer sidecarProbes: %+v\n\n", sidecarProbes)
+	
+	sidecarProbesMarshalledJSON, err := json.Marshal(sidecarProbes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize readiness probe for sidecar: %w", err)
+	}
+	sidecarProbesJSON := string(sidecarProbesMarshalledJSON)
 
 	useQPResourceDefaults := cfg.Features.QueueProxyResourceDefaults == apicfg.Enabled
 	c := &corev1.Container{
@@ -393,6 +411,9 @@ func makeQueueContainer(rev *v1.Revision, cfg *config.Config) (*corev1.Container
 		}, {
 			Name:  "SERVING_READINESS_PROBE",
 			Value: userProbeJSON,
+		}, {
+			Name:  "SIDECAR_READINESS_PROBES",
+			Value: sidecarProbesJSON,
 		}, {
 			Name:  "ENABLE_PROFILING",
 			Value: strconv.FormatBool(cfg.Observability.EnableProfiling),

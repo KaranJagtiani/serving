@@ -75,6 +75,7 @@ func (e *unreadyConfigError) MarkBadTrafficTarget(rs *v1.RouteStatus) {
 	if e.IsFailure() {
 		rs.MarkConfigurationFailed(e.name)
 	} else {
+		fmt.Println("CUSTOM_DEBUG errors.go - Marking configuration not ready")
 		rs.MarkConfigurationNotReady(e.name)
 	}
 }

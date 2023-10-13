@@ -125,7 +125,7 @@ func getResourceObjects(t testing.TB, clients *test.Clients, names *test.Resourc
 	// Might have been overridden by ServiceOptions
 	names.Service = svc.Name
 
-	t.Log("Waiting for Service to transition to Ready.", "service", names.Service)
+	t.Log("Waiting for Service to transition to Ready. 1", "service", names.Service)
 	if err := WaitForServiceState(clients.ServingClient, names.Service, IsServiceReady, "ServiceIsReady"); err != nil {
 		return nil, err
 	}

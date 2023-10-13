@@ -107,6 +107,7 @@ func (rts *RevisionTemplateSpec) VerifyNameChange(_ context.Context, og *Revisio
 
 // Validate implements apis.Validatable
 func (rs *RevisionSpec) Validate(ctx context.Context) *apis.FieldError {
+	fmt.Println("RevisionSpec Validate")
 	errs := serving.ValidatePodSpec(ctx, rs.PodSpec)
 
 	if rs.TimeoutSeconds != nil {

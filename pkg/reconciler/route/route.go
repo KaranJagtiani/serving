@@ -19,6 +19,7 @@ package route
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -391,8 +392,13 @@ func (c *Reconciler) configureTraffic(ctx context.Context, r *v1.Route) (*traffi
 		// make us fail fast.
 		return nil, trafficErr
 	}
+
+	fmt.Printf("\nCUSTOM_DEBUG badTarget %+v\n", badTarget)
+	fmt.Printf("\nCUSTOM_DEBUG isTargetError %+v\n", isTargetError)
+	
 	if badTarget != nil && isTargetError {
 		logger.Info("Marking bad traffic target: ", badTarget)
+		fmt.Println("CUSTOM_DEBUG route.go - Marking bad traffic target")
 		badTarget.MarkBadTrafficTarget(&r.Status)
 
 		// Traffic targets aren't ready, no need to configure Route.

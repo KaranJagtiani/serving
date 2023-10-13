@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
 	"net/http"
 
 	"go.uber.org/zap"
@@ -32,13 +33,13 @@ type HealthHandler struct {
 
 func (h *HealthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if netheader.IsKubeletProbe(r) {
+		fmt.Println("healthCheck ROUTE!")
 		if err := h.HealthCheck(); err != nil {
 			h.Logger.Warn("Healthcheck failed: ", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		} else {
 			w.WriteHeader(http.StatusOK)
 		}
-		return
 	}
 
 	h.NextHandler.ServeHTTP(w, r)

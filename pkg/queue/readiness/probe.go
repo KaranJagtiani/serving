@@ -104,6 +104,9 @@ func (p *Probe) shouldProbeAggressively() bool {
 
 // ProbeContainer executes the defined Probe against the user-container
 func (p *Probe) ProbeContainer() bool {
+	fmt.Println("5. queue/readiness/probe.go: ProbeContainer()")
+	fmt.Printf("Probe p: %+v\n", p)
+
 	gv, writer := func() (*gateValue, bool) {
 		p.mu.Lock()
 		defer p.mu.Unlock()
@@ -127,6 +130,7 @@ func (p *Probe) ProbeContainer() bool {
 }
 
 func (p *Probe) probeContainerImpl() bool {
+	// Main Container's probe starts here
 	var err error
 
 	switch {
@@ -191,6 +195,7 @@ func (p *Probe) doProbe(probe func(time.Duration) error) error {
 // otherwise TCP probe polls condition function which returns true
 // if the probe count is greater than success threshold and false if TCP probe fails
 func (p *Probe) tcpProbe() error {
+	// Main container's probe happens here.
 	config := health.TCPProbeConfigOptions{
 		Address: p.TCPSocket.Host + ":" + p.TCPSocket.Port.String(),
 	}
@@ -205,6 +210,7 @@ func (p *Probe) tcpProbe() error {
 // otherwise HTTP probe polls condition function which returns true
 // if the probe count is greater than success threshold and false if HTTP probe fails
 func (p *Probe) httpProbe() error {
+	// Main container's probe happens here.
 	config := health.HTTPProbeConfigOptions{
 		HTTPGetAction: p.HTTPGet,
 		MaxProtoMajor: 1,
@@ -217,6 +223,7 @@ func (p *Probe) httpProbe() error {
 
 	return p.doProbe(func(to time.Duration) error {
 		config.Timeout = to
+		fmt.Println("Final Actual Probe: ", p.Probe.PeriodSeconds)
 		return health.HTTPProbe(config)
 	})
 }

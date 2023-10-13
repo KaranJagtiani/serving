@@ -266,6 +266,7 @@ func MarkMissingTrafficTarget(kind, revision string) RouteOption {
 
 // MarkConfigurationNotReady calls the method of the same name on .Status
 func MarkConfigurationNotReady(name string) RouteOption {
+	fmt.Println("CUSTOM_DEBUG route.go - MarkConfigurationNotReady!!!")
 	return func(r *v1.Route) {
 		r.Status.MarkConfigurationNotReady(name)
 	}

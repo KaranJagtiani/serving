@@ -143,6 +143,8 @@ func admissionHandler(rootLogger *zap.SugaredLogger, stats StatsReporter, c Admi
 		}
 		response.Response.UID = review.Request.UID
 
+		fmt.Printf("CUSTOM_DEBUG admission.go - %+v", reviewResponse)
+
 		logger = logger.With(
 			AdmissionReviewUID, string(reviewResponse.UID),
 			AdmissionReviewAllowed, reviewResponse.Allowed,

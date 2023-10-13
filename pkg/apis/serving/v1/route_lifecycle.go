@@ -120,6 +120,7 @@ func (rs *RouteStatus) MarkUnknownTrafficError(msg string) {
 // MarkConfigurationNotReady marks the RouteConditionAllTrafficAssigned
 // condition to indiciate the Revision is not yet ready.
 func (rs *RouteStatus) MarkConfigurationNotReady(name string) {
+	fmt.Println("CUSTOM_DEBUG route_lifecycle.go - Marking configuration not ready")
 	routeCondSet.Manage(rs).MarkUnknown(RouteConditionAllTrafficAssigned,
 		"RevisionMissing",
 		"Configuration %q is waiting for a Revision to become ready.", name)

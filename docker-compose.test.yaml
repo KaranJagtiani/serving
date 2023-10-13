@@ -1,0 +1,9 @@
+version: "3"
+
+services:
+  go-server:
+    build:
+      context: .
+      dockerfile: local_docker/Dockerfile
+    ports:
+      - "8081:8081"

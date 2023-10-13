@@ -161,11 +161,14 @@ func newRevisionWatcher(ctx context.Context, rev types.NamespacedName, protocol 
 // the probe. If the failure is not compatible with having been caused by mesh
 // being enabled, notMesh will be true.
 func (rw *revisionWatcher) probe(ctx context.Context, dest string) (pass bool, notMesh bool, err error) {
+	fmt.Printf("\nActivator Probe Dest: %s\n\n", dest)
 	httpDest := url.URL{
 		Scheme: "http",
 		Host:   dest,
 		Path:   nethttp.HealthCheckPath,
 	}
+	fmt.Printf("\nActivator Probe httpDest: %+v\n\n", httpDest)
+	fmt.Printf("\nActivator Probe httpDest.String(): %s\n\n", httpDest.String())
 
 	// We don't want to unnecessarily fall back to ClusterIP if we see a failure
 	// that could not have been caused by the mesh being enabled.

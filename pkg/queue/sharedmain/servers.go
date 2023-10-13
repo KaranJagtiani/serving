@@ -17,6 +17,7 @@ limitations under the License.
 package sharedmain
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -27,6 +28,7 @@ import (
 )
 
 func mainServer(addr string, handler http.Handler) *http.Server {
+	fmt.Println("mainServer: addr!", addr)
 	return pkgnet.NewServer(addr, handler)
 }
 

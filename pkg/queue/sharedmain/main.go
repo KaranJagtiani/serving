@@ -18,8 +18,10 @@ package sharedmain
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -32,6 +34,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	corev1 "k8s.io/api/core/v1"
 	"knative.dev/networking/pkg/certificates"
 	netstats "knative.dev/networking/pkg/http/stats"
 	pkglogging "knative.dev/pkg/logging"
@@ -83,6 +86,7 @@ type config struct {
 	RevisionResponseStartTimeoutSeconds int    `split_words:"true"` // optional
 	RevisionIdleTimeoutSeconds          int    `split_words:"true"` // optional
 	ServingReadinessProbe               string `split_words:"true"` // optional
+	SidecarReadinessProbes			    string `split_words:"true"` // optional
 	EnableProfiling                     bool   `split_words:"true"` // optional
 	EnableHTTP2AutoDetection            bool   `split_words:"true"` // optional
 
@@ -165,13 +169,22 @@ func Main(opts ...Option) error {
 		Ctx: signals.NewContext(),
 	}
 
+	fmt.Println("1. queue/sharedmain/main.go: Main()")
+	fmt.Printf("\nopts: %+v\n\n", opts)
+	
 	// Parse the environment.
 	var env config
+	fmt.Printf("\nINITIAL: %+v\n\n", env)
+	for _, env := range os.Environ() {
+		fmt.Println("ENV: ", env)
+	}
+
 	if err := envconfig.Process("", &env); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return err
 	}
 
+	fmt.Printf("\nenvconfig.Process: %+v\n\n", env)
 	d.Env = env.Env
 
 	// Setup the Logger.
@@ -220,16 +233,41 @@ func Main(opts ...Option) error {
 		}
 	}()
 
+	fmt.Println("2. queue/sharedmain/main.go: Main()")
+	fmt.Printf("\nenv: %+v\n\n", env)
+	fmt.Println("env.ServingReadinessProbe", env.ServingReadinessProbe)
+
 	// Setup probe to run for checking user-application healthiness.
 	probe := func() bool { return true }
 	if env.ServingReadinessProbe != "" {
+		fmt.Println("3. queue/sharedmain/main.go: Main()")
 		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection).ProbeContainer
+	}
+
+	var sidecarProbes []*corev1.Probe
+	err := json.Unmarshal([]byte(env.SidecarReadinessProbes), &sidecarProbes)
+	if err != nil {
+		log.Fatalf("Failed to parse SidecarReadinessProbes: %v", err)
+	}
+	fmt.Printf("\nUnmarshalled sidecarProbes: %+v\n\n", sidecarProbes)
+
+	var sidecarProbeFuncs []func() bool
+	for _, sidecarProbe := range sidecarProbes {
+		sidecarProbeMarshalledJSON, err := json.Marshal(sidecarProbe)
+		if err != nil {
+			return fmt.Errorf("failed to serialize readiness probe for sidecar: %w", err)
+		}
+		fmt.Printf("\nMarshall Inside Loop: %s\n\n", string(sidecarProbeMarshalledJSON))
+		sidecarProbeFunc := buildProbe(logger, string(sidecarProbeMarshalledJSON), env.EnableHTTP2AutoDetection).ProbeContainer
+		sidecarProbeFuncs = append(sidecarProbeFuncs, sidecarProbeFunc)
 	}
 
 	// Enable TLS when certificate is mounted.
 	tlsEnabled := exists(logger, certPath) && exists(logger, keyPath)
 
+	// mainHandler, drainer, sidecarDrainers := mainHandler(d.Ctx, env, d.Transport, probe, stats, logger)
 	mainHandler, drainer := mainHandler(d.Ctx, env, d.Transport, probe, stats, logger)
+	// adminHandler := adminHandler(d.Ctx, logger, drainer, sidecarDrainers)
 	adminHandler := adminHandler(d.Ctx, logger, drainer)
 
 	// Enable TLS server when activator server certs are mounted.
@@ -291,6 +329,10 @@ func Main(opts ...Option) error {
 		logger.Infof("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
 		drainer.Drain()
 
+		// for _, sidecarDrainer := range sidecarDrainers {
+		// 	sidecarDrainer.Drain()
+		// }
+
 		for name, srv := range httpServers {
 			logger.Info("Shutting down server: ", name)
 			if err := srv.Shutdown(context.Background()); err != nil {
@@ -317,13 +359,17 @@ func exists(logger *zap.SugaredLogger, filename string) bool {
 }
 
 func buildProbe(logger *zap.SugaredLogger, encodedProbe string, autodetectHTTP2 bool) *readiness.Probe {
+	fmt.Println("4. queue/sharedmain/main.go: buildProbe()")
+	fmt.Println("encodedProbe: ", encodedProbe)
 	coreProbe, err := readiness.DecodeProbe(encodedProbe)
+
 	if err != nil {
 		logger.Fatalw("Queue container failed to parse readiness probe", zap.Error(err))
 	}
 	if autodetectHTTP2 {
 		return readiness.NewProbeWithHTTP2AutoDetection(coreProbe)
 	}
+	fmt.Printf("\ncoreProbe: %+v\n\n", coreProbe)
 	return readiness.NewProbe(coreProbe)
 }
 

@@ -300,6 +300,18 @@ func getUserPort(rev *v1.Revision) int32 {
 	return v1.DefaultUserPort
 }
 
+func getSidecarReadinessProbes(rev *v1.Revision) []*corev1.Probe {
+	var probes []*corev1.Probe
+
+	for _, container := range rev.Spec.Containers {
+		if container.Name == "sidecar-container" && container.ReadinessProbe != nil {
+			probes = append(probes, container.ReadinessProbe)
+		}
+	}
+
+	return probes
+}
+
 func buildContainerPorts(userPort int32) []corev1.ContainerPort {
 	return []corev1.ContainerPort{{
 		Name:          v1.UserPortName,
